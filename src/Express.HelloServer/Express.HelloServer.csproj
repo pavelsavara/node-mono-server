@@ -15,6 +15,13 @@
 	<ItemGroup>
 	  <ProjectReference Include="../Express/Express.csproj" />
 	</ItemGroup>
+	
+	<Target Name="CopyStaticFiles" BeforeTargets="Build">
+		<ItemGroup>
+			<ExpressJsFiles Include="../Express/wwwroot/*.mjs" />
+		</ItemGroup>
+		<Copy SourceFiles="@(ExpressJsFiles)" DestinationFolder="./wwwroot/" SkipUnchangedFiles="true" />
+	</Target>
 
 	<ItemGroup>
 		<Content Update="wwwroot/main.mjs">
