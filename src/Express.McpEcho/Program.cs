@@ -43,8 +43,15 @@ public class Startup
         services.AddControllers();
         services
             .AddMcpServer()
-            .WithHttpTransport()
-            ;
+            .WithHttpTransport(transportOptions =>
+            {
+                transportOptions.ConfigureSessionOptions = (HttpContext ctx, McpServerOptions options, CancellationToken token) =>
+                {
+                    Console.WriteLine("Configuring session options...");
+                    return Task.CompletedTask;
+                };
+            })
+            .WithToolsFromAssembly();
     }
 
     public virtual void Configure(IApplicationBuilder app)
@@ -53,8 +60,6 @@ public class Startup
         app.UseEndpoints(endpoints =>
         {
             endpoints.MapMcp();
-            endpoints.MapGet("/health", () => Results.Ok("Server is running"));
-            endpoints.MapGet("/", () => "Hello World from Express C# MCP Server!");
         });
     }
 }

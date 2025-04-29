@@ -1,40 +1,22 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Features;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Express;
 
-internal interface IContextWrapper
-{
-    IFeatureCollection ContextFeatures { get; }
-}
-
 partial class ExpressInterop
 {
-    private readonly IHttpApplication<IContextWrapper> _httpApplication;
+    private readonly IHttpApplicationWrapper _httpApplication;
     private static ExpressInterop? Instance;
 
-    public static FeatureCollection FeaturesCollectionFactory()
-    {
-        var features = new FeatureCollection(10);
-        features.Set<IHttpRequestFeature>(new HttpRequestFeature());
-        features.Set<IHttpResponseFeature>(new HttpResponseFeature());
-        features.Set<IHttpResponseBodyFeature>(new StreamResponseBodyFeature(new MemoryStream()));
-        return features;
-    }
-
-    public ExpressInterop(IHttpApplication<IContextWrapper> httpApplication)
+    public ExpressInterop(IHttpApplicationWrapper httpApplication)
     {
         _httpApplication = httpApplication;
     }
@@ -75,77 +57,114 @@ partial class ExpressInterop
 
     private async Task Handler(JSObject expressContext, string method, string path, string[] headerNames, string[] headerValues, byte[]? body)
     {
-        IContextWrapper? httpWrapper = null;
+        IHttpContextWrapper? httpWrapper = null;
+        ExpressResponseStream? responseStream = null;
         try
         {
-            // Console.WriteLine($"Handler {expressContext} {method} {path} {headerNames.Length} {headerValues.Length} {body?.Length}");
+            Console.WriteLine($"Express {expressContext} {method} {path} {headerNames.Length} {headerValues.Length} {body?.Length}");
+            responseStream = new ExpressResponseStream(expressContext);
+            httpWrapper = _httpApplication!.CreateContext(responseStream);
 
-            httpWrapper = _httpApplication!.CreateContext(FeaturesCollectionFactory());
-            var requestFeature = httpWrapper.ContextFeatures.Get<IHttpRequestFeature>();
-            if (requestFeature == null)
-            {
-                throw new InvalidOperationException("Request feature is not available.");
-            }
-            var responseFeature = httpWrapper.ContextFeatures.Get<IHttpResponseFeature>();
-            if (responseFeature == null)
-            {
-                throw new InvalidOperationException("Response feature is not available.");
-            }
-            var responseBodyFeature = httpWrapper.ContextFeatures.Get<IHttpResponseBodyFeature>();
+            var mwTask = httpWrapper.ProcessRequest(method, path, headerNames, headerValues, body);
 
-            requestFeature.Method = method;
-            requestFeature.Path = path;
-            for (int i = 0; i < headerNames.Length; i++)
-            {
-                requestFeature.Headers[headerNames[i]] = headerValues[i];
-            }
-            if (body != null)
-            {
-                requestFeature.Body = new MemoryStream(body);
-            }
-            await _httpApplication.ProcessRequestAsync(httpWrapper);
+            await httpWrapper.ProcessResponse();
 
-            byte[]? responseBody = null;
-            if (responseBodyFeature != null && responseBodyFeature.Stream != null && responseBodyFeature.Stream.Length > 0)
+            if (mwTask.IsCompleted)
             {
-                responseBody = await ReadFully(responseBodyFeature.Stream);
-                responseFeature.Headers.ContentLength = responseBody.Length;
+                await mwTask;
+                responseStream.Dispose();
             }
 
-            var resHeaders = responseFeature.Headers;
-            var responseHeaderNames = new string[resHeaders.Count];
-            var responseHeaderValues = new string[resHeaders.Count];
-            for (int i = 0; i < resHeaders.Count; i++)
-            {
-                var headerName = resHeaders.Keys.ElementAt(i);
-                var headerValue = resHeaders[headerName].ToString();
-                responseHeaderNames[i] = headerName;
-                responseHeaderValues[i] = headerValue;
-            }
-
-            SendResponse(expressContext, responseFeature.StatusCode, responseHeaderNames, responseHeaderValues, responseBody);
-            if (httpWrapper != null) _httpApplication?.DisposeContext(httpWrapper, null);
+            Console.WriteLine($"Express Complete");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"ExpressInterop failed: {ex.Message}");
+            Console.WriteLine($"Express failed: {ex.Message}");
             Console.WriteLine(ex);
-            SendResponse(expressContext, 500, [], [], Encoding.UTF8.GetBytes(ex.Message));
-            if (httpWrapper != null) _httpApplication?.DisposeContext(httpWrapper, ex);
+
+            var bytes = Encoding.UTF8.GetBytes(ex.ToString());
+
+            SendHeadersJs(expressContext, 500, [], []);
+            SendBuffer(expressContext, bytes, 0, bytes.Length);
+            SendEnd(expressContext);
+
+            responseStream?.Dispose();
         }
     }
 
-    private static async Task<byte[]> ReadFully(Stream input)
+    class ExpressResponseStream : ResponseStreamWrapper
     {
-        input.Position = 0;
-        /*if (input is MemoryStream)
-        {
-            return ((MemoryStream)input).ToArray();
-        }*/
+        private MemoryStream? _memoryStream;
+        private int _position;
+        private JSObject _expressContext;
 
-        using MemoryStream ms = new();
-        await input.CopyToAsync(ms);
-        return ms.ToArray();
+        public ExpressResponseStream(JSObject expressContext)
+        {
+            _expressContext = expressContext;
+            _memoryStream = new MemoryStream();
+        }
+
+        public override bool CanRead => false;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => true;
+
+        public override long Length => _position;
+
+        public override long Position
+        {
+            get => _position;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+            // no need to flush, we are sending the data immediately
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotImplementedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotImplementedException();
+
+        public override void SetLength(long value) => throw new NotImplementedException();
+
+        public override void SendHeaders(int statusCode, string[] headerNames, string[] headerValues)
+        {
+            SendHeadersJs(_expressContext, statusCode, headerNames, headerValues);
+
+            if (_memoryStream?.Length > 0)
+            {
+                _memoryStream.Position = 0;
+                SendBuffer(_expressContext, _memoryStream.ToArray(), 0, (int)_memoryStream.Length);
+                _memoryStream.Dispose();
+                _memoryStream = null;
+            }
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            _position += count;
+            // write into memory stream until headers are sent
+            if (_memoryStream != null)
+            {
+                _memoryStream.Write(buffer, offset, count);
+            }
+            else
+            {
+                SendBuffer(_expressContext, buffer, offset, count);
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                SendEnd(_expressContext);
+                _expressContext.Dispose();
+            }
+            base.Dispose(disposing);
+        }
     }
 
     #region JSInterop
@@ -165,8 +184,14 @@ partial class ExpressInterop
         }
     }
 
-    [JSImport("sendResponse", "middleware")]
-    static partial void SendResponse(JSObject expressContext, int statusCode, string[] headerNames, string[] headerValues, byte[]? responseBody);
+    [JSImport("sendHeaders", "middleware")]
+    static partial void SendHeadersJs(JSObject expressContext, int statusCode, string[] headerNames, string[] headerValues);
+
+    [JSImport("sendBuffer", "middleware")]
+    static partial void SendBuffer(JSObject expressContext, byte[] buffer, int offset, int count);
+
+    [JSImport("sendEnd", "middleware")]
+    static partial void SendEnd(JSObject expressContext);
 
     [JSImport("startServer", "middleware")]
     static partial void StartServerJs(int[] httpPorts, int[] httpsPorts, string[] hosts);

@@ -3,7 +3,7 @@
 
 import { dotnet } from './_framework/dotnet.js'
 import { startServer, stopServer } from './server.mjs'
-import { sendResponse, expressHandler } from './middleware.mjs'
+import { sendHeaders, sendBuffer, sendEnd, expressHandler } from './middleware.mjs'
 
 const { setModuleImports, getAssemblyExports, runMainAndExit } = await dotnet
     .withDiagnosticTracing(false)
@@ -12,11 +12,13 @@ const { setModuleImports, getAssemblyExports, runMainAndExit } = await dotnet
 const exports = await getAssemblyExports("Express");
 const managedRequestHandler = exports.Express.ExpressInterop.RequestHandler;
 
-const handler = (req,res) => expressHandler(req, res, managedRequestHandler);
+const handler = (req, res) => expressHandler(req, res, managedRequestHandler);
 setModuleImports('middleware', {
     startServer: (httpPorts, httpsPorts, hosts) => startServer(httpPorts, httpsPorts, hosts, handler),
     stopServer,
-    sendResponse,
+    sendHeaders,
+    sendBuffer,
+    sendEnd,
 });
 
 await runMainAndExit();

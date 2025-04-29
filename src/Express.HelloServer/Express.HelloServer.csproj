@@ -16,7 +16,7 @@
 	  <ProjectReference Include="../Express/Express.csproj" />
 	</ItemGroup>
 	
-	<Target Name="CopyStaticFiles" BeforeTargets="Build">
+	<Target Name="CopyStaticFiles" AfterTargets="PrepareForBuild">
 		<ItemGroup>
 			<ExpressJsFiles Include="../Express/wwwroot/*.mjs" />
 		</ItemGroup>
