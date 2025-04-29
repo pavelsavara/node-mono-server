@@ -1,0 +1,22 @@
+<Project>
+  <!-- Hacking 2 frameworks together to overcome limitation that Microsoft.AspNetCore.App doesn't target browser-wasm -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <Target Name="UpdateSdkPack" BeforeTargets="ProcessFrameworkReferences">
+    <ItemGroup>
+      <KnownFrameworkReference>
+        <RuntimePackRuntimeIdentifiers Condition="'%(Identity)' == 'Microsoft.AspNetCore.App' and '%(TargetFramework)' == 'net9.0'">browser-wasm</RuntimePackRuntimeIdentifiers>
+        <RuntimePackNamePatterns Condition="'%(Identity)' == 'Microsoft.AspNetCore.App' and '%(TargetFramework)' == 'net9.0'">Microsoft.AspNetCore.App.Runtime.linux-x64</RuntimePackNamePatterns>
+      </KnownFrameworkReference>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="FixRuntimePackDir" BeforeTargets="_InitializeCommonProperties">
+    <PropertyGroup>
+      <MicrosoftNetCoreAppRuntimePackDir Condition="'$(MicrosoftNetCoreAppRuntimePackDir)' == '' and '%(ResolvedRuntimePack.FrameworkName)' == 'Microsoft.NETCore.App'">%(ResolvedRuntimePack.PackageDirectory)</MicrosoftNetCoreAppRuntimePackDir>
+    </PropertyGroup>
+  </Target>
+</Project>

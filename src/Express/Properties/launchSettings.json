@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Express": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:63602;http://localhost:63603"
+    }
+  }
+}

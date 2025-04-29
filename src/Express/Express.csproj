@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+	<Import Project="./unsupported-SDK-mix.targets" />
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+		<OutputType>Exe</OutputType>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<CompressionEnabled>false</CompressionEnabled>
+		<Nullable>enable</Nullable>
+		<TrimMode>link</TrimMode>
+		<NoWarn>$(NoWarn);IL2026</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <Content Update="wwwroot/main.mjs">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Update="wwwroot/middleware.mjs">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Update="wwwroot/server.mjs">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
+
+</Project>
