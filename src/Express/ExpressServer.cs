@@ -27,7 +27,7 @@ internal sealed class ExpressServer : IServer
     public ExpressServer()
     {
         var addr = new ServerAddressesFeature();
-        addr.Addresses.Add("http://localhost:3000");
+        addr.Addresses.Add("http://localhost:3001");
         _features.Set<IServerAddressesFeature>(addr);
     }
 

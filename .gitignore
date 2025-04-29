@@ -6,3 +6,5 @@ bin
 .vscode
 .vs
 *.binlog
+src/Express.HelloServer/wwwroot/*.mjs
+src/Express.McpEcho/wwwroot/*.mjs
