@@ -14,7 +14,7 @@ npx @modelcontextprotocol/inspector
 
 ## Details
 
-This is demonstrating how to run ASP.NET Core middleware pipeline on top of NodeJS/Express HTTP server with zore native files. 
+This is demonstrating how to run ASP.NET Core middleware pipeline on top of NodeJS/Express HTTP server with zero native files. 
 The motivation is to make it easier to run C# MCP server via `nxp` without dotnet native installation on the target architecture.
 
 The dotnet VM is Mono interpreter compiled into WASM in for the Browser target.
