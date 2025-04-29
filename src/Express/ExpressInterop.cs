@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.JavaScript;
@@ -38,6 +39,7 @@ partial class ExpressInterop
         _httpApplication = httpApplication;
     }
 
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicMethods)]
     public void StartServer(string[] addresses)
     {
         Instance = this;

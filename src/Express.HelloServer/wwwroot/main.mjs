@@ -12,7 +12,7 @@ const { setModuleImports, getAssemblyExports, runMainAndExit } = await dotnet
 const exports = await getAssemblyExports("Express");
 const managedRequestHandler = exports.Express.ExpressInterop.RequestHandler;
 
-const handler = (req,res) => expressHandler(req, res, managedRequestHandler);
+const handler = (req, res) => expressHandler(req, res, managedRequestHandler);
 setModuleImports('middleware', {
     startServer: (httpPorts, httpsPorts, hosts) => startServer(httpPorts, httpsPorts, hosts, handler),
     stopServer,
