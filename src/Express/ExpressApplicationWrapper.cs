@@ -149,16 +149,4 @@ internal class ExpressApplicationWrapper<TContext> : IExpressApplicationWrapper
     {
         return new ExpressHttpContext(responseStream, _application);
     }
-
-    private void DisposeContext(IExpressHttpContext contextWrapper, Exception? exception)
-    {
-        ExpressHttpContext wrapper = (ExpressHttpContext)contextWrapper;
-        _application.DisposeContext(wrapper.Context!, exception);
-    }
-
-    private Task ProcessRequestAsync(IExpressHttpContext contextWrapper)
-    {
-        ExpressHttpContext wrapper = (ExpressHttpContext)contextWrapper;
-        return _application.ProcessRequestAsync(wrapper.Context!);
-    }
 }

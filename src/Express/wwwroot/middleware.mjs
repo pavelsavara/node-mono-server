@@ -38,8 +38,9 @@ export function sendHeaders(httpContext, statusCode, headerNames, headerValues) 
         headers.set(field, value);
     }
     res.setHeaders(headers);
-    
     res.status(statusCode);
+
+    res.flushHeaders();
 }
 
 export function sendBuffer(httpContext, responseBuffer, offset, count) {
