@@ -3,25 +3,18 @@
 
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Express;
 
-internal interface IExpressHttpContextFactory
-{
-    object Create(IFeatureCollection featureCollection);
-    void Dispose(object httpContext);
-}
-
 internal sealed class ExpressServer : IServer
 {
-    private ExpressInterop? _interop;
+    private IExpressInterop _expressInterop;
     private bool _disposed = false;
     private static readonly IFeatureCollection _features;
     public IFeatureCollection Features { get; } = _features;
@@ -34,20 +27,50 @@ internal sealed class ExpressServer : IServer
         _features.Set<IServerAddressesFeature>(addr);
     }
 
+    public ExpressServer(IExpressInterop expressInterop)
+    {
+        _expressInterop = expressInterop;
+    }
+
     public Task StartAsync<TContext>(IHttpApplication<TContext> application, CancellationToken cancellationToken) where TContext : notnull
+    {
+        IExpressApplicationWrapper appWrapper = new ExpressApplicationWrapper<TContext>(application, _expressInterop);
+
+        StartServer(appWrapper);
+        return Task.CompletedTask;
+    }
+
+    private void StartServer(IExpressApplicationWrapper appWrapper)
     {
         var addressesFeature = _features.Get<IServerAddressesFeature>();
         var addresses = addressesFeature != null ? addressesFeature.Addresses.ToArray() : [];
-
-        _interop = new ExpressInterop(new HttpApplicationWrapper<TContext>(application));
-        _interop.StartServer(addresses);
-        return Task.CompletedTask;
+        List<int> httpPorts = new();
+        List<int> httpsPorts = new();
+        List<string> hosts = new();
+        foreach (var address in addresses)
+        {
+            var uri = new Uri(address);
+            if (uri.Scheme == "http")
+            {
+                httpPorts.Add(uri.Port);
+                hosts.Add(uri.Host);
+            }
+            else if (uri.Scheme == "https")
+            {
+                httpsPorts.Add(uri.Port);
+            }
+            else
+            {
+                throw new NotSupportedException($"Unsupported scheme: {uri.Scheme}");
+            }
+        }
+        _expressInterop.StartServer(appWrapper, httpPorts.ToArray(), httpsPorts.ToArray(), hosts.ToArray());
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        _interop?.StopServer();
-        _interop = null;
+        _expressInterop?.StopServer();
+        _expressInterop = null!;
         return Task.CompletedTask;
     }
 
@@ -58,136 +81,4 @@ internal sealed class ExpressServer : IServer
             _disposed = true;
         }
     }
-}
-
-internal class HttpApplicationWrapper<TContext> : IHttpApplicationWrapper
-    where TContext : notnull
-{
-    private class HttpContextWrapper : IHttpContextWrapper
-    {
-        internal TContext? Context;
-        ResponseStreamWrapper _responseStream;
-
-        private HttpRequestFeature req;
-        private HttpResponseFeature res;
-        private StreamResponseBodyFeature resBody;
-
-        IHttpApplication<TContext> _application;
-        private bool disposedValue;
-
-        public HttpContextWrapper(ResponseStreamWrapper responseStream, IHttpApplication<TContext> application)
-        {
-            _application = application;
-            _responseStream = responseStream;
-
-            var features = new FeatureCollection(10);
-            req = new HttpRequestFeature(); 
-            res = new HttpResponseFeature();
-            resBody = new StreamResponseBodyFeature(responseStream);
-            features.Set<IHttpRequestFeature>(req);
-            features.Set<IHttpResponseFeature>(res);
-            features.Set<IHttpResponseBodyFeature>(resBody);
-
-            var ctx = _application.CreateContext(features);
-            Context = ctx;
-
-        }
-
-        public Task ProcessRequest(string method, string path, string[] headerNames, string[] headerValues, byte[]? body)
-        {
-            req.Method = method;
-            req.Path = path;
-            for (int i = 0; i < headerNames.Length; i++)
-            {
-                req.Headers[headerNames[i]] = headerValues[i];
-            }
-            if (body != null)
-            {
-                req.Body = new MemoryStream(body);
-            }
-            return _application.ProcessRequestAsync(Context!);
-        }
-
-        public async Task ProcessResponse()
-        {
-            await resBody.StartAsync();
-            var resHeaders = res.Headers;
-            var responseHeaderNames = new string[resHeaders.Count];
-            var responseHeaderValues = new string[resHeaders.Count];
-            for (int i = 0; i < resHeaders.Count; i++)
-            {
-                var headerName = resHeaders.Keys.ElementAt(i);
-                var headerValue = resHeaders[headerName].ToString();
-                responseHeaderNames[i] = headerName;
-                responseHeaderValues[i] = headerValue;
-            }
-            _responseStream.SendHeaders(res.StatusCode, responseHeaderNames, responseHeaderValues);
-            await resBody.CompleteAsync();
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    resBody.Dispose();
-                    _responseStream.Dispose();
-                }
-
-                disposedValue = true;
-            }
-        }
-
-        public void Dispose()
-        {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-    }
-
-    private readonly IHttpApplication<TContext> _application;
-
-    public HttpApplicationWrapper(IHttpApplication<TContext> application)
-    {
-        _application = application;
-    }
-
-    public IHttpContextWrapper CreateContext(ResponseStreamWrapper responseStream)
-    {
-        return new HttpContextWrapper(responseStream, _application);
-    }
-
-    public void DisposeContext(IHttpContextWrapper contextWrapper, Exception? exception)
-    {
-        HttpContextWrapper wrapper = (HttpContextWrapper)contextWrapper;
-        _application.DisposeContext(wrapper.Context!, exception);
-    }
-
-    public Task ProcessRequestAsync(IHttpContextWrapper contextWrapper)
-    {
-        HttpContextWrapper wrapper = (HttpContextWrapper)contextWrapper;
-        return _application.ProcessRequestAsync(wrapper.Context!);
-    }
-}
-
-internal interface IHttpContextWrapper : IDisposable
-{
-    Task ProcessRequest(string method, string path, string[] headerNames, string[] headerValues, byte[]? body);
-    Task ProcessResponse();
-}
-
-internal abstract class ResponseStreamWrapper : Stream
-{
-    public abstract void SendHeaders(int statusCode, string[] headerNames, string[] headerValues);
-}
-
-internal interface IHttpApplicationWrapper
-{
-    IHttpContextWrapper CreateContext(ResponseStreamWrapper expressContext);
-
-    Task ProcessRequestAsync(IHttpContextWrapper context);
-
-    void DisposeContext(IHttpContextWrapper context, Exception? exception);
 }

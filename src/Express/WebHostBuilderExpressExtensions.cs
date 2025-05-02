@@ -10,6 +10,7 @@ public static class WebHostBuilderExpressExtensions
     {
         return hostBuilder.ConfigureServices(services =>
         {
+            services.AddSingleton<IExpressInterop, ExpressInterop>();
             services.AddSingleton<IServer, ExpressServer>();
         });
     }
