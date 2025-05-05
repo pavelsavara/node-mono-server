@@ -8,11 +8,11 @@ using System.Threading.Tasks;
 
 namespace Express;
 
+[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicMethods)]
 partial class ExpressInterop : IExpressInterop
 {
     private static IExpressApplicationWrapper? _httpApplicationInstance;
 
-    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.NonPublicMethods)]
     public void StartServer(IExpressApplicationWrapper httpApplication, int[] httpPorts, int[] httpsPorts, string[] hosts)
     {
         _httpApplicationInstance = httpApplication;

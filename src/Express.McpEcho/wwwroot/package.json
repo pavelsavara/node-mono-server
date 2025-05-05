@@ -1,9 +1,12 @@
 {
-  "name": "@pavelsavara/express-csharp",
+  "name": "@pavelsavara/express-csharp-mcp-echo",
   "version": "0.1.0",
   "description": "Demo of MCP SSE server in C# running on NodeJS",
   "main": "main.mjs",
   "type": "module",
+  "bin": {
+    "express-csharp-mcp-echo": "main.mjs"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/pavelsavara/node-mono-server.git"
@@ -19,8 +22,5 @@
   "homepage": "https://github.com/pavelsavara/node-mono-server#readme",
   "dependencies": {
     "express": "^5.1.0"
-  },
-  "devDependencies": {
-    "@modelcontextprotocol/inspector": "^0.11.0"
   }
 }

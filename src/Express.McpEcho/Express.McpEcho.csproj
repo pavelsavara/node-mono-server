@@ -9,11 +9,13 @@
 		<CompressionEnabled>false</CompressionEnabled>
 		<Nullable>enable</Nullable>
 		<TrimMode>link</TrimMode>
-		<NoWarn>$(NoWarn);IL2026;CA1416</NoWarn>
+		<NoWarn>$(NoWarn);IL2026;CA1416;IL2104</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="../Express/Express.csproj" />
+		<PackageReference Include="ModelContextProtocol" Version="0.1.0-preview.11" />
+		<PackageReference Include="ModelContextProtocol.AspNetCore" Version="0.1.0-preview.11" />
+		<ProjectReference Include="../Express/Express.csproj" />
 	</ItemGroup>
 	
 	<Target Name="CopyStaticFiles" AfterTargets="PrepareForBuild">
@@ -34,10 +36,4 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
 	</ItemGroup>
-
-	<ItemGroup>
-	  <PackageReference Include="ModelContextProtocol" Version="0.1.0-preview.11" />
-	  <PackageReference Include="ModelContextProtocol.AspNetCore" Version="0.1.0-preview.11" />
-	</ItemGroup>
-
 </Project>

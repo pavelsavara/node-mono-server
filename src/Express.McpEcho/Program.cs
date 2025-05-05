@@ -3,11 +3,11 @@
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Server;
 using System;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,6 +15,8 @@ namespace Express.McpEcho;
 
 public class Program
 {
+    // DynamicDependency is used to ensure that the EchoTool class is not removed by the linker.
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicMethods, typeof(EchoTool))]
     public static async Task Main(string[] args)
     {
         try

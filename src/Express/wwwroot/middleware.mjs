@@ -24,7 +24,7 @@ export async function expressHandler(req, res, managedRequestHandler) {
 
         const body = Uint8Array.from(Buffer.concat(chunks));
 
-        // console.log("Express handler: ", JSON.stringify({ method: req.method, absoluteUrl, headerNames, headerValues, body:body.length }));
+        // console.log("Express handler: ", JSON.stringify({ method: req.method, absoluteUrl, body:body.length }));
 
         const httpContext = {
             req,
