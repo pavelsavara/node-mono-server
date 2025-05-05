@@ -1,6 +1,6 @@
 {
   "name": "@pavelsavara/express-csharp-mcp-echo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Demo of MCP SSE server in C# running on NodeJS",
   "main": "main.mjs",
   "type": "module",

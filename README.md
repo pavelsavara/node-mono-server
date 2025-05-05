@@ -3,7 +3,13 @@
 The motivation is to make it easier to run C# MCP SSE server via `nxp` without dotnet native installation on the target architecture.
 Perhaps there are other use-cases.
 
+try:
 
+```sh
+npx @pavelsavara/express-csharp-mcp-echo
+```
+
+## Build
 ```sh
 npm install
 dotnet workload restore
