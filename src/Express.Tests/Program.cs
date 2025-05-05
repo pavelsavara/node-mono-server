@@ -42,14 +42,6 @@ public class Startup
         services.AddControllers();
         services
             .AddMcpServer()
-            .WithHttpTransport(transportOptions =>
-            {
-                transportOptions.ConfigureSessionOptions = (HttpContext ctx, McpServerOptions options, CancellationToken token) =>
-                {
-                    Console.WriteLine("Configuring session options...");
-                    return Task.CompletedTask;
-                };
-            })
             .WithToolsFromAssembly();
     }
 

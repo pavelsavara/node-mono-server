@@ -4,6 +4,7 @@
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using System;
 using System.IO;
 using System.Linq;
@@ -11,6 +12,11 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace Express;
+
+class HttpBodyControlFeature : IHttpBodyControlFeature
+{
+    public bool AllowSynchronousIO { get => false; set => throw new NotImplementedException(); }
+}
 
 internal class ExpressApplicationWrapper<TContext> : IExpressApplicationWrapper
     where TContext : notnull
@@ -27,6 +33,8 @@ internal class ExpressApplicationWrapper<TContext> : IExpressApplicationWrapper
         IHttpApplication<TContext> _application;
         private bool disposedValue;
 
+        public bool HasStarted => res.HasStarted;
+
         public ExpressHttpContext(ResponseStreamWrapper responseStream, IHttpApplication<TContext> application)
         {
             _application = application;
@@ -38,6 +46,8 @@ internal class ExpressApplicationWrapper<TContext> : IExpressApplicationWrapper
             resBody = new StreamResponseBodyFeature(responseStream);
             features.Set<IHttpRequestFeature>(req);
             features.Set<IHttpResponseFeature>(res);
+            features.Set<IQueryFeature>(new QueryFeature(features));
+            features.Set<IHttpBodyControlFeature>(new HttpBodyControlFeature());
             features.Set<IHttpResponseBodyFeature>(resBody);
 
             var ctx = _application.CreateContext(features);
@@ -45,10 +55,19 @@ internal class ExpressApplicationWrapper<TContext> : IExpressApplicationWrapper
 
         }
 
-        public Task ProcessRequest(string method, string path, string[] headerNames, string[] headerValues, byte[]? body)
+        public Task ProcessRequest(string method, string url, string[] headerNames, string[] headerValues, byte[]? body)
         {
             req.Method = method;
-            req.Path = path;
+
+            Uri existingRequestFeature = new Uri(url, UriKind.Absolute);
+
+            req.Protocol = HttpProtocol.Http11;
+            req.Scheme = existingRequestFeature.Scheme;
+            req.Path = existingRequestFeature.AbsolutePath;
+            req.QueryString = existingRequestFeature.Query;
+            req.RawTarget = url;
+            //TODO req.PathBase
+
             for (int i = 0; i < headerNames.Length; i++)
             {
                 req.Headers[headerNames[i]] = headerValues[i];
@@ -74,7 +93,10 @@ internal class ExpressApplicationWrapper<TContext> : IExpressApplicationWrapper
                 responseHeaderValues[i] = headerValue;
             }
             _responseStream.SendHeaders(res.StatusCode, responseHeaderNames, responseHeaderValues);
-            await resBody.CompleteAsync();
+            if (res.StatusCode != 400)
+            {
+                await resBody.CompleteAsync();
+            }
         }
 
         protected virtual void Dispose(bool disposing)
@@ -108,17 +130,17 @@ internal class ExpressApplicationWrapper<TContext> : IExpressApplicationWrapper
         _expressInterop = expressInterop;
     }
 
-    public async Task Handler(IDisposable expressContext, string method, string path, string[] headerNames, string[] headerValues, byte[]? body)
+    public async Task Handler(IDisposable expressContext, string method, string url, string[] headerNames, string[] headerValues, byte[]? body)
     {
         IExpressHttpContext? httpWrapper = null;
         ExpressResponseStream? responseStream = null;
         try
         {
-            Console.WriteLine($"Express {expressContext} {method} {path} {headerNames.Length} {headerValues.Length} {body?.Length}");
+            // Console.WriteLine($"Express {expressContext} {method} {url} {headerNames.Length} {headerValues.Length} {body?.Length}");
             responseStream = new ExpressResponseStream(expressContext, _expressInterop);
             httpWrapper = CreateContext(responseStream);
 
-            var mwTask = httpWrapper.ProcessRequest(method, path, headerNames, headerValues, body);
+            var mwTask = httpWrapper.ProcessRequest(method, url, headerNames, headerValues, body);
 
             await httpWrapper.ProcessResponse();
 
@@ -128,7 +150,7 @@ internal class ExpressApplicationWrapper<TContext> : IExpressApplicationWrapper
                 responseStream.Dispose();
             }
 
-            Console.WriteLine($"Express Complete");
+            // Console.WriteLine($"Express Complete");
         }
         catch (Exception ex)
         {
@@ -136,10 +158,12 @@ internal class ExpressApplicationWrapper<TContext> : IExpressApplicationWrapper
             Console.WriteLine(ex);
 
             var bytes = Encoding.UTF8.GetBytes(ex.ToString());
-
-            _expressInterop.SendHeaders(expressContext, 500, [], []);
-            _expressInterop.SendBuffer(expressContext, bytes, 0, bytes.Length);
-            _expressInterop.SendEnd(expressContext);
+            if (httpWrapper == null || !httpWrapper.HasStarted)
+            {
+                _expressInterop.SendHeaders(expressContext, 500, [], []);
+                _expressInterop.SendBuffer(expressContext, bytes, 0, bytes.Length);
+                _expressInterop.SendEnd(expressContext);
+            }
 
             responseStream?.Dispose();
         }

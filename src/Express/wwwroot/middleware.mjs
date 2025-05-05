@@ -4,6 +4,7 @@
 export async function expressHandler(req, res, managedRequestHandler) {
     try {
 
+        const absoluteUrl = `${req.protocol}://${req.host}${req.originalUrl}`;
         const headerNames = [];
         const headerValues = [];
         for (const name of Object.keys(req.headers)) {
@@ -11,16 +12,26 @@ export async function expressHandler(req, res, managedRequestHandler) {
             headerValues.push(req.headers[name]);
         }
 
-        const body = req.body ? Uint8Array.from(req.body) : new Uint8Array(0);
+        const chunks = [];
+        // TODO request streaming to C# stream
+        await new Promise((resolve, reject) => {
+            req.on('data', (chunk) => {
+                chunks.push(chunk);
+            });
+            req.on('end', resolve);
+            req.on('error', reject);
+        });
 
-        console.log("Express handler: ", JSON.stringify({ method: req.method, path: req.path, headerNames, headerValues, body }));
+        const body = Uint8Array.from(Buffer.concat(chunks));
+
+        // console.log("Express handler: ", JSON.stringify({ method: req.method, absoluteUrl, headerNames, headerValues, body:body.length }));
 
         const httpContext = {
             req,
             res,
         };
 
-        await managedRequestHandler(httpContext, req.method, req.path, headerNames, headerValues, body);
+        await managedRequestHandler(httpContext, req.method, absoluteUrl, headerNames, headerValues, body);
     }
     catch (error) {
         console.log("Express handler failed: " + error);
@@ -28,7 +39,7 @@ export async function expressHandler(req, res, managedRequestHandler) {
 }
 
 export function sendHeaders(httpContext, statusCode, headerNames, headerValues) {
-    console.log("Express sendResponseHeaders: ", statusCode);
+    // console.log("Express sendResponseHeaders: ", statusCode);
     
     const headers = new Map();
     const res = httpContext.res;
@@ -44,7 +55,7 @@ export function sendHeaders(httpContext, statusCode, headerNames, headerValues) 
 }
 
 export function sendBuffer(httpContext, responseBuffer, offset, count) {
-    console.log("Express sendBuffer: ", { responseBuffer, offset, count });
+    //console.log("Express sendBuffer: ", { responseBuffer, offset, count });
     const res = httpContext.res;
     if (responseBuffer) {
         const buffer = Buffer.from(responseBuffer, offset, count);
@@ -53,7 +64,7 @@ export function sendBuffer(httpContext, responseBuffer, offset, count) {
 }
 
 export function sendEnd(httpContext) {
-    console.log("Express sendEnd: ");
+    //console.log("Express sendEnd: ");
     const res = httpContext.res;
     res.end();
 }

@@ -9,7 +9,7 @@ namespace Express;
 
 interface IExpressApplicationWrapper
 {
-    Task Handler(IDisposable expressContext, string method, string path, string[] headerNames, string[] headerValues, byte[]? body);
+    Task Handler(IDisposable expressContext, string method, string url, string[] headerNames, string[] headerValues, byte[]? body);
 }
 
 internal interface IExpressInterop
@@ -23,8 +23,9 @@ internal interface IExpressInterop
 
 internal interface IExpressHttpContext : IDisposable
 {
-    Task ProcessRequest(string method, string path, string[] headerNames, string[] headerValues, byte[]? body);
+    Task ProcessRequest(string method, string url, string[] headerNames, string[] headerValues, byte[]? body);
     Task ProcessResponse();
+    bool HasStarted { get; }
 }
 
 abstract class ResponseStreamWrapper : Stream

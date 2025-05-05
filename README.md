@@ -22,5 +22,4 @@ The integration with Express HTTP server is done via `[JSImport]/[JSExport]` int
 At the moment the implementation is naive HTTP/1.1 only with response streaming, no WS, no HTTP/2.
 
 ## Todo
-- demonstrate actual MCP server
 - provide steps which publish this as NPM package

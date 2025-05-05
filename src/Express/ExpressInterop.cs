@@ -44,7 +44,7 @@ partial class ExpressInterop : IExpressInterop
     #region JSInterop
 
     [JSExport]
-    static Task RequestHandler(JSObject expressContext, string method, string path, string[] headerNames, string[] headerValues, byte[]? body)
+    static Task RequestHandler(JSObject expressContext, string method, string url, string[] headerNames, string[] headerValues, byte[]? body)
     {
         if (_httpApplicationInstance == null)
         {
@@ -54,7 +54,7 @@ partial class ExpressInterop : IExpressInterop
         // NodeJS should be single threaded, right ?
         lock (_httpApplicationInstance!)
         {
-            return _httpApplicationInstance.Handler(expressContext, method, path, headerNames, headerValues, body);
+            return _httpApplicationInstance.Handler(expressContext, method, url, headerNames, headerValues, body);
         }
     }
 
